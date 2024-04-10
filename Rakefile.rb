@@ -1,38 +1,64 @@
 require 'erb'
 require 'date'
+require 'debug'
 
-def template(name)
-  ERB.new(File.read("templates/#{name}.erb"), trim_mode: '<>').result
-end
+Rake.application.options.trace_rules = true
 
-def write_if_changed(filepath, new_content)
-	if File.exist?(filepath)
-		old_contents = File.read(filepath).strip
-		if new_content.strip == old_content
-      puts "no change: #{filepath}"
-      return
-    end
-	end
-	File.open(filepath, 'w') { |f| f.puts new_content }
-end
-
-@_self = 'Prasanna Natarajan'
+@_self = 'Veeran The Hero'
 @page_title = defined?(@title) ? "#{@title} | #{@_self}" : "#{@_self}"
 
-puts template('head.html')
+INPUT_FILES = Rake::FileList.new('_input/**/*.txt')
+OUTPUT_FILES = INPUT_FILES.pathmap("%{^_input/,_output/}X.html")
 
-desc "build site/ from content/ and templates/"
-task :make do
+####################
 
-  # WRITE HOME PAGE
+def template(name)
+  ERB.new(File.read("layout/#{name}.erb"), trim_mode: '<>').result
+end
+
+def build_output_file_string(body_content)
   html = template('head.html')
-  html << template('home.html')
+  html << template('body.html')
+  html << body_content
   html << template('foot.html')
-	write_if_changed('site/home', html)
+  html
 end
 
-task :cleanup do
-  sh "rm -rf site/*"
+def write_to_file(filepath, content)
+  File.open(filepath, 'w') { |f| f.puts content }
 end
 
-task :default => [:make]
+def input_file_for(output_file)
+  output_file.pathmap('%{^_output/,_input/}p').ext('.txt')
+end
+
+def do_work_son(input_file, output_file)
+  @url = File.basename(input_file)
+  lines = File.readlines(input_file)
+  /<!--\s+(.+)\s+-->/.match lines.shift
+  @title = $1
+  body = lines.join('')
+  @page_title = "#{@title} | #{@_self}"
+  write_to_file(output_file, build_output_file_string(body))
+end
+
+####################
+
+task :clean do
+  rm_rf '_output'
+end
+
+directory '_output'
+
+rule '.html' => ->(f){input_file_for(f)} do |t|
+  input_file = t.source
+  output_file = t.name
+  mkdir_p output_file.pathmap('%d')
+  do_work_son(input_file, output_file)
+end
+
+####################
+
+task :default => :build_site
+
+task :build_site => [*OUTPUT_FILES, '_output']
