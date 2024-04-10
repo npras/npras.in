@@ -1,13 +1,14 @@
 require 'erb'
 require 'date'
 require 'debug'
+require 'rake/clean'
 
 # vars, constants, configs
 
-Rake.application.options.trace_rules = true
+# Rake.application.options.trace_rules = true
 
-@_self = 'Veeran The Hero'
-@page_title = defined? @title ? %Q(#{@title} | #{@_self}) : "#{@_self}"
+SITE_NAME = 'Veeran The Hero'
+TITLE = "%{page_title} | #{SITE_NAME}"
 
 INPUT_BASEDIR = '_input'
 OUTPUT_BASEDIR = '_output'
@@ -20,20 +21,18 @@ OUTPUT_FILES = INPUT_FILES.pathmap "%{^#{INPUT_BASEDIR}/,#{OUTPUT_BASEDIR}/}X.ht
 
 task :default => :build_site
 
-task :build_site => [*OUTPUT_FILES, OUTPUT_BASEDIR]
+desc 'build site'
+task :build_site => [OUTPUT_BASEDIR, *OUTPUT_FILES]
 
 directory OUTPUT_BASEDIR
 
 rule '.html' => ->(f){input_file_for(f)} do |t|
-  input_file = t.source
-  output_file = t.name
-  mkdir_p output_file.pathmap('%d')
-  do_work_son input_file, output_file
+  mkdir_p t.name.pathmap('%d')
+  do_work_son input_file: t.source, output_file: t.name
 end
 
-task :clean do
-  rm_rf '_output'
-end
+CLEAN.include OUTPUT_FILES, OUTPUT_BASEDIR
+# CLOBBER.include 'site.zip'
 
 ####################
 
@@ -45,29 +44,26 @@ def input_file_for output_file
     .ext('.txt')
 end
 
-def do_work_son input_file, output_file
-  @url = File.basename input_file
+def do_work_son input_file:, output_file:
   lines = File.readlines input_file
-  /<!--\s+(.+)\s+-->/.match lines.shift
-  @title = $1
-  body = lines.join ''
-  @page_title = %Q(#{@title} | #{@_self})
-  write_to_file output_file, build_output_file_string(body)
+  body = lines.join
+  match_data = /<!--\s+(.+)\s+-->/.match lines.first.strip
+  title = match_data[1]
+  @page_title = TITLE % {page_title: title}
+  write_file output_file, build_output_file_string(body)
 end
 
 def build_output_file_string body_content
-  html = template('head.html')
-  html << template('body.html')
+  html = t('head')
+  html << t('body')
   html << body_content
-  html << template('foot.html')
+  html << t('foot')
   html
 end
 
-def template name
-  content = File.read "layout/#{name}.erb"
+def t name
+  content = File.read "templates/#{name}.erb"
   ERB.new(content, trim_mode: '<>').result
 end
 
-def write_to_file filepath, content
-  File.open(filepath, 'w') { |f| f.puts content }
-end
+def write_file(path, content) = File.open(path, 'w') { _1.puts content }
