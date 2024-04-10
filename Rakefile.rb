@@ -2,6 +2,10 @@ require 'erb'
 require 'date'
 require 'debug'
 
+####################
+
+# vars, constants, configs
+
 Rake.application.options.trace_rules = true
 
 @_self = 'Veeran The Hero'
@@ -11,6 +15,8 @@ INPUT_FILES = Rake::FileList.new('_input/**/*.txt')
 OUTPUT_FILES = INPUT_FILES.pathmap("%{^_input/,_output/}X.html")
 
 ####################
+
+# Ruby stuff
 
 def template(name)
   ERB.new(File.read("layout/#{name}.erb"), trim_mode: '<>').result
@@ -44,6 +50,8 @@ end
 
 ####################
 
+# Rake stuff
+
 task :clean do
   rm_rf '_output'
 end
@@ -57,8 +65,6 @@ rule '.html' => ->(f){input_file_for(f)} do |t|
   do_work_son(input_file, output_file)
 end
 
-####################
+task :build_site => [*OUTPUT_FILES, '_output']
 
 task :default => :build_site
-
-task :build_site => [*OUTPUT_FILES, '_output']
